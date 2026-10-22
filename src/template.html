@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HSC SQL Practice: Software Engineering</title>
+<style>
+/*CSS*/
+</style>
+</head>
+<body>
+<header class="app">
+  <button type="button" id="fullscreen-btn" aria-label="Toggle fullscreen" title="Toggle fullscreen">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M16 3h3a2 2 0 0 1 2 2v3"></path><path d="M8 21H5a2 2 0 0 1-2-2v-3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg>
+  </button>
+  <div><span class="logo"><span class="tag">SQL</span>HSC SQL Practice</span><span class="sub">Software Engineering · Programming for the Web · Year 12</span></div>
+  <nav class="stepper" id="stepper" aria-label="Pages"></nav>
+</header>
+
+<div class="refbar">
+  <details class="refsheet">
+    <summary>📋 HSC SQL reference (from the Course Specifications)</summary>
+    <div class="inner">
+      <pre class="code">SELECT   the field(s) or calculated values to be displayed
+FROM     the table(s) to be used
+WHERE    the search criteria
+GROUP BY the field(s) used to group the returned rows
+ORDER BY the field(s) that determine the sequence of the displayed results</pre>
+      <p><code>AS</code> may be used in a SELECT to rename fields for display. Aggregate functions: <code>SUM</code>, <code>AVG</code>, <code>COUNT</code>, <code>MAX</code>, <code>MIN</code>. Logical operators: <code>AND</code>, <code>OR</code>, <code>NOT</code>. Sort methods: <code>ASC</code>, <code>DESC</code>.</p>
+      <table class="ref">
+        <tr><th>HSC operator (words)</th><th>What SQLite uses</th></tr>
+        <tr><td>EQUALS</td><td><code>=</code></td></tr>
+        <tr><td>NOT EQUAL TO</td><td><code>&lt;&gt;</code> or <code>!=</code></td></tr>
+        <tr><td>GREATER THAN</td><td><code>&gt;</code></td></tr>
+        <tr><td>GREATER THAN OR EQUAL TO</td><td><code>&gt;=</code></td></tr>
+        <tr><td>LESS THAN</td><td><code>&lt;</code></td></tr>
+        <tr><td>LESS THAN OR EQUAL TO</td><td><code>&lt;=</code></td></tr>
+        <tr><td>CONTAINS</td><td><code>LIKE '%text%'</code></td></tr>
+        <tr><td>DOES NOT CONTAIN</td><td><code>NOT LIKE '%text%'</code></td></tr>
+      </table>
+      <p>This site accepts <strong>both</strong>. A real SQLite database only accepts the right-hand column. Dates here are stored as <code>YYYY-MM-DD</code>.</p>
+      <div id="ref-tables"></div>
+    </div>
+  </details>
+</div>
+
+<main id="main"></main>
+
+<footer>Fictional data (Games, Publishers, Developers). The tables are modelled on the example in the HSC Software Engineering Course Specifications. Queries run entirely in your browser, and nothing is sent anywhere. Progress is saved in this browser only.</footer>
+
+<script>
+/*JS*/
+</script>
+</body>
+</html>
