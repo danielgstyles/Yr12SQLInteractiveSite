@@ -166,6 +166,13 @@
         if (eatK("OFFSET")) { var on2 = peek(); if (on2.t !== "num") near("OFFSET needs a number."); p++; q.offset = on2.v; }
       }
       if (isSym(peek(), ";")) p++;
+      var tx = peek();
+      if (tx.t === "id" && ["WHERE", "GROUP", "HAVING", "ORDER", "FROM", "LIMIT"].indexOf(tx.v.toUpperCase()) !== -1) {
+        var last = q.limit !== null ? "LIMIT" : q.order.length ? "ORDER BY" : q.having ? "HAVING" : q.group.length ? "GROUP BY" : q.where ? "WHERE" : "FROM";
+        var thisOne = tx.v.toUpperCase() === "GROUP" ? "GROUP BY" : tx.v.toUpperCase() === "ORDER" ? "ORDER BY" : tx.v.toUpperCase();
+        if (thisOne === last) fail("You can only have one " + thisOne + " in a query. To use two conditions, join them with AND (or OR) inside the one WHERE.");
+        fail("Your " + thisOne + " comes after the " + last + ", but the clauses must always go in this order: SELECT, FROM, WHERE, GROUP BY, ORDER BY. Move the " + thisOne + " to the right place.");
+      }
       if (peek().t !== "eof") near();
       return q;
     }
@@ -307,9 +314,7 @@
   }
   function hasAgg(n) { var f = false; walk(n, function (x) { if (x.k === "agg") f = true; }); return f; }
   function isNumStr(s) { return /^\s*[-+]?(\d+\.?\d*|\.\d+)\s*$/.test(s); }
-  var DMY = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
-  function dmyToIso(v) { var m = DMY.exec(v); return m ? m[3] + "-" + ("0" + m[2]).slice(-2) + "-" + ("0" + m[1]).slice(-2) : null; }
-  function isoToDmy(v) { var m = ISO.exec(v); return m ? m[3] + "/" + m[2] + "/" + m[1] : null; }
+  var ISO = /^(\d{4})-(\d{2})-(\d{2})$/, DATELIKE = /^\d{1,4}[-\/.]\d{1,2}[-\/.]\d{1,4}$/;
 
   /* ---------------- engine ---------------- */
   function createEngine(db) {
@@ -397,8 +402,8 @@
       }
       function convertDates(node, colSide, litSide) {
         if (colSide.k === "col" && colSide.ctype === "date" && litSide.k === "str") {
-          var iso = dmyToIso(litSide.v);
-          if (iso) { litSide.v = iso; litSide.wasDmy = true; notes.dmyDate = true; }
+          if (!ISO.test(litSide.v) && DATELIKE.test(litSide.v))
+            fail("The date '" + litSide.v + "' is not in the order this table uses. Dates in this database are stored year first, as YYYY-MM-DD, like '2022-03-01'. Rewrite the date in that order. (Real SQLite gives no error here. It quietly returns the wrong rows, so this site stops you to make sure you notice.)");
         }
       }
 
@@ -620,10 +625,24 @@
         if (x.k === "and" || x.k === "or") [x.l, x.r].forEach(function (y) { if (y.k === "num" || y.k === "str" || y.k === "col") bareOp = true; });
         if (x.k === "not" && (x.e.k === "num" || x.e.k === "str" || x.e.k === "col")) bareOp = true;
       }); });
+      var allConds = [q.where, q.having].concat(q.joinOn);
+      var likeNoWild = false, containsPct = false, unquotedDate = false, linked = false;
+      function constOnly(n) { return n.k === "num" || ((n.k === "bin" || n.k === "neg") && [n.l, n.r, n.e].filter(Boolean).every(constOnly)); }
+      allConds.forEach(function (c) { walk(c, function (x) {
+        if (x.k === "like" && !x.word && x.r.k === "str" && !/[%_]/.test(x.r.v)) likeNoWild = true;
+        if (x.k === "like" && x.word && x.r.k === "str" && /%/.test(x.r.v)) containsPct = true;
+        if ((x.k === "cmp" || x.k === "between") && x.l.k === "col" && x.l.ctype === "date") {
+          [x.r, x.lo, x.hi].filter(Boolean).forEach(function (o) { if (constOnly(o)) unquotedDate = true; });
+        }
+        if (x.k === "cmp" && x.op === "=" && x.l.k === "col" && x.r.k === "col" && x.l.src !== x.r.src) linked = true;
+      }); });
+      if (scope.length > 1 && !linked) rn.push("Nothing matches the keys of these tables, so every row of one table has been paired with every row of the other: " + total + " rows (a cartesian product). Add a WHERE condition that matches a foreign key to the primary key it points to, like Games.Publisher_ID = Publishers.Publisher_ID.");
+      if (likeNoWild) rn.push("LIKE without a % only matches the whole value. Put a % at each end to mean 'anywhere in the text', like LIKE '%Star%'.");
+      if (containsPct) rn.push("CONTAINS already means 'anywhere in the text', so leave the % out. (The % is for LIKE.)");
+      if (unquotedDate) rn.push("A date without quotes, like 2024-01-01, is worked out as a subtraction (2024 - 1 - 1 = 2022), so it does not compare with the dates in the table. Dates are text, so put them in single quotes: '2024-01-01'.");
       if (bareOp) rn.push("Each side of AND, OR or NOT needs a full condition, like Cost = 15 OR Cost = 60. A bare value such as 'OR 60' is not a comparison. SQLite treats any number except 0 as true, so the condition is always true and the rows you expect do not get filtered.");
       if (notes.curly) rn.push("Your query had curly quote marks (‘ ’), probably copied from a PDF. This site fixed them, but SQL needs plain straight quotes: '");
       if (notes.doubleQuote) rn.push("Text values go in single quotes ('like this'), not double quotes.");
-      if (notes.dmyDate) rn.push("A date written like '01/03/2022' is how the Course Specifications write it in their example, and this site understood it. Real SQLite compares dates as plain text, so that form would give wrong rows. In your Codespace store and search dates as YYYY-MM-DD, like '2022-03-01'.");
       if (notes.bareColumn) rn.push("You mixed an aggregate (like COUNT or SUM) with a plain field but did not use GROUP BY. SQLite runs it anyway and shows one arbitrary row, which is misleading. HSC answers need GROUP BY.");
       return { cols: items.map(function (i) { return i.name; }), rows: rows, notes: rn, ast: q, fmt: fmt, cartesian: total };
     }
@@ -642,16 +661,7 @@
       return PREC[n.k] || 9;
     }
 
-    function pLit(n, mode, dateCtx) {
-      if (n.k === "str") {
-        if (dateCtx) {
-          if (mode === "hsc" && ISO.test(n.v)) return quote(isoToDmy(n.v));
-          if (mode === "sqlite" && DMY.test(n.v)) return quote(dmyToIso(n.v));
-        }
-        return quote(n.v);
-      }
-      return null;
-    }
+    function pLit(n) { return n.k === "str" ? quote(n.v) : null; }
     function isDateCol(n) { return n.k === "col" && n.ctype === "date"; }
 
     function pExpr(n, mode, parentLevel) {
@@ -754,12 +764,6 @@
           if (n.k === "cmp") {
             if (n.form === "sym") { add(symbols, n.op); change(toHsc, SYM[n.op], WORD[n.op]); }
             else { add(words, WORD[n.op]); change(toSqlite, WORD[n.op], SYM[n.op]); }
-            [[n.l, n.r], [n.r, n.l]].forEach(function (pr) {
-              if (isDateCol(pr[0]) && pr[1].k === "str") {
-                if (pr[1].wasDmy) change(toSqlite, "'" + isoToDmy(pr[1].v) + "'", "'" + pr[1].v + "'");
-                else if (ISO.test(pr[1].v)) change(toHsc, "'" + pr[1].v + "'", "'" + isoToDmy(pr[1].v) + "'");
-              }
-            });
           }
           if (n.k === "like") {
             if (n.word) {

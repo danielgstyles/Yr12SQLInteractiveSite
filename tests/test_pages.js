@@ -70,12 +70,12 @@ mustFail("p6t4", "SELECT Publisher_ID, COUNT(ID) AS Games_published FROM Games",
 mustPass("p6t4", "SELECT Publisher_ID, COUNT(ID) AS Games_published FROM Games GROUP BY Publisher_ID", "ok");
 mustFail("p7t1", "SELECT Games.Name, Publishers.Name AS Publisher FROM Games, Publishers", "cartesian");
 mustPass("p7t5", "SELECT Developers.First_name, Developers.Last_name, SUM (Games.Cost) AS Totalcost FROM Games JOIN Publishers ON Publishers.Publisher_ID = Games.Publisher_ID JOIN Developers ON Developers.Developer_ID = Games.Developer_ID WHERE Publishers.Name = 'Games Inc' GROUP BY Developers.Developer_ID ORDER BY Developers.Last_name DESC", "JOIN ON form");
-mustPass("p4t2", "SELECT Name, Release_date FROM Games WHERE Release_date BETWEEN '01/01/2023' AND '31/12/2023'", "BETWEEN + dmy dates");
+mustPass("p4t2", "SELECT Name, Release_date FROM Games WHERE Release_date BETWEEN '2023-01-01' AND '2023-12-31'", "BETWEEN with year-first dates");
 mustFail("p8x1", "SELECT Name, Cost FROM Games WHERE Cost >= 25 AND Publisher_ID <> 3 ORDER BY Name ASC", "translation not done (symbols)");
 mustFail("p8x2", "SELECT Games.Name, Publishers.Name FROM Games JOIN Publishers ON Games.Publisher_ID = Publishers.Publisher_ID WHERE Games.Name CONTAINS 'Star'", "still JOIN ON");
 mustFail("p8x3", "SELECT Name FROM Games WHERE Cost GREATER THAN 30 AND Name DOES NOT CONTAIN 'a'", "still words");
 mustPass("p8x3", "SELECT Name FROM Games WHERE Cost > 30 AND Name NOT LIKE '%a%'", "ok");
-mustPass("p8t5", "SELECT Name FROM Games WHERE Release_date GREATER THAN '30/06/2023' AND Publisher_ID NOT EQUAL TO 1 ORDER BY Release_date DESC", "HSC words + HSC date");
+mustPass("p8t5", "SELECT Name FROM Games WHERE Release_date GREATER THAN '2023-06-30' AND Publisher_ID NOT EQUAL TO 1 ORDER BY Release_date DESC", "operator words + year-first date");
 mustPass("p8t4", "SELECT Developers.First_name, Developers.Last_name, SUM(Games.Cost) AS Totalcost FROM Games, Developers WHERE Games.Release_date >= '2023-01-01' AND Games.Release_date <= '2023-12-31' AND Developers.Developer_ID = Games.Developer_ID GROUP BY Developers.Developer_ID ORDER BY Totalcost DESC, Developers.Last_name", "ties on total OK");
 
 mustFail("p6t1", "SELECT MAX(ID) AS Total_games FROM Games", "wrong function");
@@ -85,12 +85,46 @@ mustFail("p4t5", "SELECT Name, Publisher_ID FROM Games WHERE Publisher_ID > 2 --
 mustPass("p4t5", "SELECT Name, Publisher_ID FROM Games WHERE NOT Publisher_ID = 1 AND NOT Publisher_ID = 2", "real NOT");
 mustFail("p6t4", "SELECT Publisher_ID, COUNT(ID) AS Games_published FROM Games -- GROUP BY", "GROUP BY only in a comment");
 mustFail("p3t4", "SELECT Name, Release_date FROM Games WHERE Release_date >= 2024", "unquoted number");
+mustFail("p3t4", "SELECT Name, Release_date FROM Games WHERE Release_date > '2024-01-01'", "> instead of >= (a game is dated exactly 2024-01-01)");
 mustPass("p8t3", "SELECT Publishers.Name AS Publisher, COUNT(*) AS Games_published FROM Games, Publishers WHERE Games.Publisher_ID = Publishers.Publisher_ID GROUP BY Publishers.Publisher_ID", "free heading for the name");
 mustFail("p5h1", "SELECT Name, Release_date FROM Games ORDER BY Release_date DESC", "no tie-break");
 mustFail("p2t4", "SELECT Release_date AS Released, Name AS Game FROM Games", "order of listed fields");
+mustFail("p7t2", "SELECT Name, Cost FROM Games WHERE Publisher_ID = 2", "no join, hard-coded publisher id");
+mustPass("p7t2", "SELECT Games.Name, Games.Cost FROM Games JOIN Publishers ON Games.Publisher_ID = Publishers.Publisher_ID WHERE Publishers.Name = 'Pixel Press'", "JOIN ON form passes");
+// the main failure message teaches (compares the shape of the student's query with the reference answer)
+function msgHas(key, q, re, why) {
+  n++; const tk = tasks.find(([p, t]) => t.key === key)[1];
+  let r; try { r = eng.run(q); } catch (e) { bad("msgHas errored " + q); return; }
+  const v = M.check(eng, tk, q, r);
+  if (v.ok || !re.test(v.msg)) bad("message for " + why + " (" + key + "): " + v.msg);
+}
+msgHas("p6t4", "SELECT Publisher_ID, COUNT(ID) AS Games_published FROM Games", /no GROUP BY.*one row for each group/, "aggregate without GROUP BY");
+msgHas("p6t6", "SELECT Developer_ID, Cost FROM Games", /GROUP BY.*SUM/, "no GROUP BY and no SUM");
+msgHas("p7t1", "SELECT Name, Cost FROM Games", /data from 2 tables/, "single table instead of a join");
+msgHas("p7t1", "SELECT Games.Name, Publishers.Name AS Publisher FROM Games, Publishers", /not matched up/, "join with no key match");
+msgHas("p3t1", "SELECT Name, Cost FROM Games", /no WHERE/, "no WHERE");
+msgHas("p3t4", "SELECT Name, Release_date FROM Games WHERE Release_date >= '2023-01-01'", /too many rows/, "too loose");
+msgHas("p3t1", "SELECT Name, Cost FROM Games WHERE Cost = 25", /too few rows.*>= or <=/, "too strict");
+msgHas("p3t1", "SELECT Name FROM Games WHERE Cost = 20", /1 column.*list after SELECT/, "wrong number of columns");
+// teaching notes
+function noteHas(q, re, why) { n++; const r = eng.run(q); if (!r.notes.some(x => re.test(x))) bad("no note for " + why + ": " + q); }
+function noNote(q, re, why) { n++; const r = eng.run(q); if (r.notes.some(x => re.test(x))) bad("unexpected note for " + why + ": " + q); }
+noteHas("SELECT Name FROM Games WHERE Name LIKE 'er'", /LIKE without a %/, "LIKE without %");
+noNote("SELECT Name FROM Games WHERE Name LIKE '%er%'", /LIKE without a %/, "LIKE with %");
+noteHas("SELECT Name FROM Games WHERE Name CONTAINS '%er%'", /CONTAINS already means/, "CONTAINS with %");
+noNote("SELECT Name FROM Games WHERE Name CONTAINS 'er'", /CONTAINS already means/, "CONTAINS plain");
+noteHas("SELECT Name FROM Games WHERE Release_date >= 2024-01-01", /without quotes/, "unquoted date");
+noNote("SELECT Name FROM Games WHERE Release_date >= '2024-01-01'", /without quotes/, "quoted date");
+noteHas("SELECT Games.Name, Publishers.Name FROM Games, Publishers", /cartesian product/, "join with no condition");
+noNote("SELECT Games.Name, Publishers.Name FROM Games, Publishers WHERE Games.Publisher_ID = Publishers.Publisher_ID", /cartesian/, "proper join");
+noNote("SELECT Games.Name, Publishers.Name FROM Games JOIN Publishers ON Games.Publisher_ID = Publishers.Publisher_ID", /cartesian/, "JOIN ON");
+noteHas("SELECT Name FROM Games WHERE Cost = 15 OR 60", /needs a full condition/, "bare OR value");
 // facts quoted in the text
 function val(sql) { return eng.run(sql).rows; }
 function eq(name, got, want) { n++; if (JSON.stringify(got) !== JSON.stringify(want)) bad("fact " + name + ": got " + JSON.stringify(got) + " want " + JSON.stringify(want)); }
+eq("p4 OR/brackets pair rows", [val("SELECT Name FROM Games WHERE Publisher_ID = 1 OR Publisher_ID = 2 AND Cost < 30").length, val("SELECT Name FROM Games WHERE (Publisher_ID = 1 OR Publisher_ID = 2) AND Cost < 30").length], [9, 2]);
+eq("p6 groups example", val("SELECT Publisher_ID, Name FROM Games ORDER BY Publisher_ID").length, 17);
+eq("p7 three-table example rows", val("SELECT Games.Name, Publishers.Name AS Publisher, Developers.Last_name FROM Games, Publishers, Developers WHERE Games.Publisher_ID = Publishers.Publisher_ID AND Games.Developer_ID = Developers.Developer_ID").length, 17);
 eq("17 games", val("SELECT COUNT(ID) FROM Games"), [[17]]);
 eq("games >40", val("SELECT COUNT(ID) FROM Games WHERE Cost > 40"), [[4]]);
 eq("cartesian", val("SELECT * FROM Games, Publishers").length, 68);
@@ -105,8 +139,11 @@ eq("spec ex1 rows", val("SELECT Name FROM Games WHERE Release_date >= '2022-03-0
 eq("spec ex2", val("SELECT Developers.Last_name, SUM (Games.Cost) AS Totalcost FROM Games, Publishers, Developers WHERE Publishers.Name = 'Games Inc' AND Publishers.Publisher_ID = Games.Publisher_ID AND Developers.Developer_ID = Games.Developer_ID GROUP BY Developers.Developer_ID ORDER BY Developers.Last_name DESC"), [["Patel", 110], ["Martin", 120], ["Chen", 80]]);
 // claim made on page 5: the Specifications' query run in real SQLite returns all 17 rows (not 9)
 const specQ = "SELECT Name, Release_date FROM Games WHERE Release_date >= '01/03/2022' AND Release_date <= '31/03/2023' ORDER BY Name ASC";
-const specRef = JSON.parse(execFileSync("python3", ["-I", path.join(__dirname, "ref_sqlite.py")], { input: JSON.stringify({ db: DB, queries: [specQ] }) }));
-eq("spec query in real SQLite", specRef[0].rows.length, 17);
-eq("spec query in the site engine", eng.run(specQ).rows.length, 9);
+const specQ2 = "SELECT Name, Release_date FROM Games WHERE Release_date >= '2022-03-01' AND Release_date <= '2023-03-31' ORDER BY Name ASC";
+const specRef = JSON.parse(execFileSync("python3", ["-I", path.join(__dirname, "ref_sqlite.py")], { input: JSON.stringify({ db: DB, queries: [specQ, specQ2] }) }));
+eq("spec query as printed, in real SQLite (silently wrong)", specRef[0].rows.length, 17);
+eq("spec query with dates turned around, in real SQLite", specRef[1].rows.length, 9);
+eq("spec query turned around, in the site engine", eng.run(specQ2).rows.length, 9);
+n++; try { eng.run(specQ); bad("site should stop the day-first date"); } catch (e) { if (!/not in the order this table uses/.test(e.message)) bad("wrong message " + e.message); }
 console.log(`${n - fails}/${n} checks ok, ${tasks.length} tasks, ${PAGES.reduce((a, p) => a + allMcqs(p).length, 0)} MCQs`);
 process.exit(fails ? 1 : 0);

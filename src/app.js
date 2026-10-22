@@ -196,7 +196,7 @@ PAGES.forEach(function (p) {
 
   var sec = document.createElement("section");
   sec.className = "screen"; sec.setAttribute("data-screen", p.id); sec.setAttribute("aria-label", "Page " + p.id + ": " + p.title);
-  var h = '<div class="li-banner"><span class="tag">Learning intention · Page ' + p.id + " of " + PAGES.length + "</span><p>" + p.li + '</p><p class="pace">⏱ ' + p.pace + "</p>" + (p.id <= 7 ? '<p class="pace">Tasks marked <span class="tasklabel opt">Optional</span> are extra practice for early finishers or homework. The page ticks when the core tasks are done.</p>' : "") + "</div>";
+  var h = '<div class="li-banner"><span class="tag">' + (p.lesson ? "Lesson " + p.lesson + " of 3 · " : "") + "Learning intention · Page " + p.id + " of " + PAGES.length + "</span><p>" + p.li + '</p><p class="pace">⏱ ' + p.pace + "</p>" + (p.id <= 7 ? '<p class="pace">Tasks marked <span class="tasklabel opt">Optional</span> are extra practice for early finishers or homework. The page ticks when the core tasks are done.</p>' : "") + "</div>";
   (p.learn || []).forEach(function (c) { h += card(c.h, c.html); });
   h += '<details class="dataview"><summary>📋 Show the three tables</summary><div class="inner">' + allTablesHtml() + "</div></details>";
   var slots = [];

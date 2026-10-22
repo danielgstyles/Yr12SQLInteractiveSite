@@ -37,8 +37,6 @@ module.exports = [
   "SELECT Name FROM Games WHERE NOT (Publisher_ID = 1 OR Publisher_ID = 2)",
   "SELECT Name FROM Games WHERE NOT Publisher_ID EQUALS 1 AND Cost GREATER THAN 20",
   "SELECT Name, Release_date FROM Games WHERE Release_date >= '2022-03-01' AND Release_date <= '2023-03-31' ORDER BY Name ASC",
-  "SELECT Name, Release_date FROM Games WHERE Release_date >= '01/03/2022' AND Release_date <= '31/03/2023' ORDER BY Name ASC",
-  "SELECT Name, Release_date FROM Games WHERE Release_date GREATER THAN OR EQUAL TO '01/03/2022' AND Release_date LESS THAN OR EQUAL TO '31/03/2023' ORDER BY Name",
   "SELECT Name FROM Games WHERE Release_date BETWEEN '2023-01-01' AND '2023-12-31'",
   "SELECT Name FROM Games WHERE Release_date > '2023-12-31'",
   "SELECT Name FROM Games ORDER BY Name",

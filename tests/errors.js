@@ -23,4 +23,12 @@ module.exports = [
   ["SELECT Name FROM Games ORDER BY Name ASCENDING", /ASC or DESC/],
   ["SELECT COUNT(ID) AS n FROM Games WHERE n > 3", /can't use it in WHERE/],
   ["SELECT Name FROM Games ORDER Cost", /Did you mean ORDER|BY/],
+  ["SELECT Name FROM Games ORDER BY Name WHERE Cost > 20", /WHERE comes after the ORDER BY.*SELECT, FROM, WHERE, GROUP BY, ORDER BY/],
+  ["SELECT Publisher_ID, COUNT(ID) FROM Games ORDER BY Publisher_ID GROUP BY Publisher_ID", /GROUP BY comes after the ORDER BY/],
+  ["SELECT Name FROM Games WHERE Cost > 1 WHERE Cost < 50", /only have one WHERE/],
+  ["SELECT Name FROM Games WHERE Release_date >= '01/03/2022'", /not in the order this table uses/],
+  ["SELECT Name FROM Games WHERE Release_date >= '01-03-2022'", /YYYY-MM-DD/],
+  ["SELECT Name FROM Games WHERE Release_date >= '2022-3-1'", /not in the order this table uses/],
+  ["SELECT Name FROM Games WHERE Release_date BETWEEN '2022-03-01' AND '31/03/2023'", /not in the order this table uses/],
+  ["SELECT Name FROM Games WHERE Release_date GREATER THAN '30/06/2023'", /not in the order this table uses/],
 ];
